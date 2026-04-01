@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "patterns": [
+    {
+      "match": "^IA \\d+\\.\\d+$",
+      "match_type": "regex",
+      "account_hint": "HSA",
+      "category": "Transfer",
+      "seen": 3,
+      "overrides": 0,
+      "confidence": "confident",
+      "last_seen": "2026-03-31",
+      "note": "HSA investment activity — payroll contributions and internal trades"
+    }
+  ]
+}
