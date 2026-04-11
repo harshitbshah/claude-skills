@@ -40,9 +40,16 @@ git clone https://github.com/harshitbshah/claude-skills.git ~/.claude/skills
 
 ### Configure `/compare-portfolio`
 
-Edit `compare-portfolio/SKILL.md` and replace:
-- `YOUR_GOOGLE_SHEET_ID` — from your sheet URL (`docs.google.com/spreadsheets/d/<ID>/`)
-- `YOUR_MAIN_PORTFOLIO_ID` and `YOUR_ETF_PORTFOLIO_ID` — find these by calling `mcp__savvytrader__get_my_portfolios` in a Claude Code session
+Add these to your `~/.bashrc` (or `~/.zshrc`):
+
+```bash
+export PORTFOLIO_SHEET_ID="your-google-sheet-id"
+export SAVVY_MAIN_PORTFOLIO_ID="your-main-portfolio-id"
+export SAVVY_ETF_PORTFOLIO_ID="your-etf-portfolio-id"
+```
+
+Find your Sheet ID in the URL: `docs.google.com/spreadsheets/d/<ID>/`  
+Find your SavvyTrader portfolio IDs by calling `mcp__savvytrader__get_my_portfolios` in a Claude Code session.
 
 ### Configure `/review-transactions`
 

@@ -11,9 +11,7 @@ Compare US portfolio holdings between the Google Sheet and SavvyTrader. Surface 
 
 ## Configuration
 
-> **Before using:** replace the placeholders below with your own values.
-
-- **Sheet ID:** `YOUR_GOOGLE_SHEET_ID` — the ID from your sheet URL (`docs.google.com/spreadsheets/d/<ID>/`)
+- **Sheet ID:** read from `$PORTFOLIO_SHEET_ID` env var (set in `~/.bashrc`)
 - **Tab:** `US Portfolio`
 - **Sheet columns:** Theme (A), Ticker (B), % (C), Quantity (D), Holdings (E), Conviction (F)
 - **Data range:** `US Portfolio!A2:F100` — skip header row; ignore trailing rows where column B is a number or empty (totals/metadata rows)
@@ -26,7 +24,7 @@ Compare US portfolio holdings between the Google Sheet and SavvyTrader. Surface 
 ### 1. Fetch both sources in parallel
 
 **Google Sheet:**
-Run: `gws sheets spreadsheets values get --params "{\"spreadsheetId\": \"YOUR_GOOGLE_SHEET_ID\", \"range\": \"US Portfolio!A2:F100\"}"`
+Run: `gws sheets spreadsheets values get --params "{\"spreadsheetId\": \"$PORTFOLIO_SHEET_ID\", \"range\": \"US Portfolio!A2:F100\"}"`
 
 (Must use double-quote escaping — single quotes break on `!` in the range string)
 
@@ -34,8 +32,8 @@ Parse rows where column B (index 1) looks like a valid ticker (letters only, 1�
 
 **SavvyTrader:**
 Call `mcp__savvytrader__get_holdings` **twice in parallel** — once for each portfolio:
-- `portfolio_id: YOUR_MAIN_PORTFOLIO_ID` → your main portfolio (find IDs via `mcp__savvytrader__get_my_portfolios`)
-- `portfolio_id: YOUR_ETF_PORTFOLIO_ID` → your ETF portfolio (omit this call if you only have one)
+- `portfolio_id: $SAVVY_MAIN_PORTFOLIO_ID` → your main portfolio
+- `portfolio_id: $SAVVY_ETF_PORTFOLIO_ID` → your ETF portfolio (omit this call if you only have one)
 
 Merge the two `holdings` arrays into one. If the same ticker appears in both portfolios, sum the quantities. Each entry has `symbol` and `quantity`.
 
