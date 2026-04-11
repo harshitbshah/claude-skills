@@ -40,7 +40,7 @@ git clone https://github.com/harshitbshah/claude-skills.git ~/.claude/skills
 
 ### Configure `/compare-portfolio`
 
-Add these to your `~/.bashrc` (or `~/.zshrc`):
+Set these env vars in your shell. The recommended approach is a [private dotfiles repo](https://github.com/harshitbshah/dotfiles) sourced by `~/.bashrc`:
 
 ```bash
 export PORTFOLIO_SHEET_ID="your-google-sheet-id"
