@@ -11,7 +11,9 @@ Compare US portfolio holdings between the Google Sheet and SavvyTrader. Surface 
 
 ## Configuration
 
-- **Sheet ID:** `YOUR_GOOGLE_SHEET_ID`
+> **Before using:** replace the placeholders below with your own values.
+
+- **Sheet ID:** `YOUR_GOOGLE_SHEET_ID` — the ID from your sheet URL (`docs.google.com/spreadsheets/d/<ID>/`)
 - **Tab:** `US Portfolio`
 - **Sheet columns:** Theme (A), Ticker (B), % (C), Quantity (D), Holdings (E), Conviction (F)
 - **Data range:** `US Portfolio!A2:F100` — skip header row; ignore trailing rows where column B is a number or empty (totals/metadata rows)
@@ -32,8 +34,8 @@ Parse rows where column B (index 1) looks like a valid ticker (letters only, 1�
 
 **SavvyTrader:**
 Call `mcp__savvytrader__get_holdings` **twice in parallel** — once for each portfolio:
-- `portfolio_id: YOUR_MAIN_PORTFOLIO_ID` → The Shah Portfolio
-- `portfolio_id: YOUR_ETF_PORTFOLIO_ID` → The Shah ETF Portfolio
+- `portfolio_id: YOUR_MAIN_PORTFOLIO_ID` → your main portfolio (find IDs via `mcp__savvytrader__get_my_portfolios`)
+- `portfolio_id: YOUR_ETF_PORTFOLIO_ID` → your ETF portfolio (omit this call if you only have one)
 
 Merge the two `holdings` arrays into one. If the same ticker appears in both portfolios, sum the quantities. Each entry has `symbol` and `quantity`.
 
@@ -50,7 +52,7 @@ Print a summary in this format:
 
 ```
 === US Portfolio Comparison ===
-Sheet: N tickers | SavvyTrader: N tickers (Shah Portfolio + ETF Portfolio merged)
+Sheet: N tickers | SavvyTrader: N tickers (portfolios merged)
 
 ✅ All tickers present in both  (or list missing ones)
 

@@ -11,25 +11,42 @@ Reviews Monarch Money transactions flagged for review (`needs_review: true`). Us
 
 **Files:**
 - `review-transactions/SKILL.md` — skill definition
-- `review-transactions/monarch-patterns.json` — learned categorization patterns (grows over time)
-- `review-transactions/categories-cache.json` — Monarch category list (cached permanently; delete to refresh)
+- `review-transactions/monarch-patterns.json` — learned categorization patterns (grows over time, gitignored)
+- `review-transactions/categories-cache.json` — Monarch category list (cached permanently, gitignored; delete to refresh)
 
 ---
 
 ### `/compare-portfolio`
-Compares US portfolio holdings between the Google Sheet (updated daily by [portfolio-sync](https://github.com/harshitbshah/portfolio-sync)) and SavvyTrader. Flags missing tickers and quantity drift above 0.1 shares.
+Compares US portfolio holdings between a Google Sheet (source of truth) and SavvyTrader. Flags missing tickers and quantity drift above 0.1 shares.
 
 **Flow:** Read sheet via `gws` + fetch SavvyTrader holdings in parallel → diff tickers and quantities → clean one-liner output when in sync, detailed table when issues found.
 
-**Requirements:** `gws` CLI authenticated with `https://www.googleapis.com/auth/spreadsheets` scope.
+**Requirements:**
+- `gws` CLI authenticated with `https://www.googleapis.com/auth/spreadsheets` scope
+- `savvytrader` MCP server configured ([harshitbshah/savvytrader-client](https://github.com/harshitbshah/savvytrader-client))
+- Update the Sheet ID and portfolio IDs in `compare-portfolio/SKILL.md` with your own values
 
 ---
 
-## Restore on a new machine
+## Setup
+
+### Clone
 
 ```bash
 git clone https://github.com/harshitbshah/claude-skills.git ~/.claude/skills
 ```
+
+### Configure `/compare-portfolio`
+
+Edit `compare-portfolio/SKILL.md` and replace:
+- `YOUR_GOOGLE_SHEET_ID` — from your sheet URL (`docs.google.com/spreadsheets/d/<ID>/`)
+- `YOUR_MAIN_PORTFOLIO_ID` and `YOUR_ETF_PORTFOLIO_ID` — find these by calling `mcp__savvytrader__get_my_portfolios` in a Claude Code session
+
+### Configure `/review-transactions`
+
+No config needed. On first run it creates `monarch-patterns.json` automatically. The file is gitignored so your personal patterns stay local.
+
+---
 
 ## Keeping skills backed up
 
