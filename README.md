@@ -14,7 +14,7 @@ Reviews Monarch Money transactions flagged for review (`needs_review: true`). Us
 - `review-transactions/monarch-patterns.json` — learned categorization patterns (grows over time, gitignored)
 - `review-transactions/categories-cache.json` — Monarch category list (cached permanently, gitignored; delete to refresh)
 
-> **Dependency note:** This skill uses `needs_review: true` filtering in `get_transactions`, which requires a patched version of the Monarch Money MCP server. The upstream PR is at [bradleyseanf/monarchmoneycommunity#20](https://github.com/bradleyseanf/monarchmoneycommunity/pull/20). Until merged, apply the patch locally or the skill will return no transactions.
+> **Dependency note:** This skill uses `needs_review: true` filtering in `get_transactions`, which requires monarch-money-community v0.x or later (merged in [bradleyseanf/monarchmoneycommunity#20](https://github.com/bradleyseanf/monarchmoneycommunity/pull/20)). Ensure your Monarch MCP server is up to date.
 
 ---
 
