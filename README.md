@@ -14,6 +14,8 @@ Reviews Monarch Money transactions flagged for review (`needs_review: true`). Us
 - `review-transactions/monarch-patterns.json` — learned categorization patterns (grows over time, gitignored)
 - `review-transactions/categories-cache.json` — Monarch category list (cached permanently, gitignored; delete to refresh)
 
+> **Dependency note:** This skill uses `needs_review: true` filtering in `get_transactions`, which requires a patched version of the Monarch Money MCP server. The upstream PR is at [bradleyseanf/monarchmoneycommunity#20](https://github.com/bradleyseanf/monarchmoneycommunity/pull/20). Until merged, apply the patch locally or the skill will return no transactions.
+
 ---
 
 ### `/compare-portfolio`
@@ -22,7 +24,7 @@ Compares US portfolio holdings between a Google Sheet (source of truth) and Savv
 **Flow:** Read sheet via `gws` + fetch SavvyTrader holdings in parallel → diff tickers and quantities → clean one-liner output when in sync, detailed table when issues found.
 
 **Requirements:**
-- `gws` CLI authenticated with `https://www.googleapis.com/auth/spreadsheets` scope
+- [`gws`](https://github.com/tanaikech/gws) CLI — a Google Workspace CLI; authenticate with `https://www.googleapis.com/auth/spreadsheets` scope
 - `savvytrader` MCP server configured ([harshitbshah/savvytrader-client](https://github.com/harshitbshah/savvytrader-client))
 - Update the Sheet ID and portfolio IDs in `compare-portfolio/SKILL.md` with your own values
 

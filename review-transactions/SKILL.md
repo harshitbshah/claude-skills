@@ -100,7 +100,7 @@ Track successes and failures.
 
 ### 6. Update the pattern file
 
-After applying, update `~/.claude/skills/monarch-patterns.json`:
+After applying, update `~/.claude/skills/review-transactions/monarch-patterns.json`:
 
 For each applied transaction:
 - **If the suggestion came from a `confident` or `learning` pattern and user did NOT override:**
