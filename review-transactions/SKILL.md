@@ -214,23 +214,29 @@ Next audit will start from: YYYY-MM-DD
 
 ### Rule promotion suggestions
 
-After the summary, list every pattern where `confidence == "confident"` and `monarch_rule == false`,
-grouped by whether it needs an account-scoped rule:
+**Promotion threshold:** `seen >= 5` AND `overrides == 0` AND `monarch_rule == false`.
+
+This is higher than the `confident` bar (3+) because a Monarch Rule applies globally with no
+review — you want to be sure before making it permanent. Infrequent merchants may never hit the
+threshold; that's fine, the skill keeps handling them.
+
+After the summary, list every pattern meeting the threshold:
 
 ```
 ── Ready to promote to Monarch Rules ──────────────────
-These confident patterns have no Monarch Rule yet. Add them in Settings → Rules to eliminate
-future flags entirely.
+These patterns have been seen 5+ times with no overrides. Add them in Settings → Rules to
+eliminate future flags entirely.
 
-  1. Description contains "ROLLOVER CASH DIRECT ROLLOVER" (account: Roth IRA) → Transfer
-  2. Description contains "contribution" exact match (account: 401k) → Retirement Contributions
-  3. Description matches regex "^IA \d+\.\d+$" (account: HSA) → HSA
+  1. Description contains "ROLLOVER CASH DIRECT ROLLOVER" (account: Roth IRA) → Transfer  [seen: 20]
+  2. Description contains "contribution" exact match (account: 401k) → Retirement Contributions  [seen: 6]
+  3. Description matches regex "^IA \d+\.\d+$" (account: HSA) → HSA  [seen: 8]
   ...
 
 Once added, set monarch_rule: true in monarch-patterns.json for each one.
 ```
 
-If all confident patterns already have `monarch_rule: true` → print:
+If no patterns meet the threshold → print nothing (skip this section).
+If all eligible patterns already have `monarch_rule: true` → print:
 ```
-✓ All confident patterns have Monarch Rules — no manual action needed.
+✓ All promotion-ready patterns have Monarch Rules — no manual action needed.
 ```
