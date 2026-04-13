@@ -5,13 +5,27 @@ description: Review Monarch Money transactions that need categorization. Uses sa
 
 # review-transactions
 
-Review Monarch Money transactions that need review. Use saved patterns first — only fetch history for unknowns. Learn from every confirmed categorization.
+Two-phase transaction review:
+- **Phase 1** — transactions Monarch flagged `needs_review` (always runs, no date limit)
+- **Phase 2** — all transactions since `last_reviewed`, audited against patterns to catch mismatches and unknowns
 
 ---
 
-## Pattern file
+## Startup: read these files first
 
-Read `~/.claude/skills/review-transactions/monarch-patterns.json` at the start of every run. If it doesn't exist, treat patterns as an empty array.
+1. **`~/.claude/skills/review-transactions/monarch-patterns.json`** — categorization rules. If missing, treat as empty array.
+2. **`~/.claude/skills/review-transactions/account-context.md`** — account structure and financial setup context. Read this to correctly classify investment account activity.
+3. **`~/.claude/skills/review-transactions/state.json`** — watermark. If missing, use 30 days ago as default `last_reviewed`.
+4. **`~/.claude/skills/review-transactions/categories-cache.json`** — category list. If missing, call `mcp__monarch-money__get_transaction_categories` once and write it as `{ "categories": [ ... ] }`. Never re-fetch if it exists.
+
+**state.json shape:**
+```json
+{ "last_reviewed": "2026-04-13" }
+```
+
+---
+
+## Pattern file reference
 
 Each pattern entry:
 ```json
@@ -29,9 +43,9 @@ Each pattern entry:
 ```
 
 **Confidence rules:**
-- `learning` — seen 1–2×, no overrides → still fetch history as cross-check
-- `confident` — seen 3+×, overrides == 0 → skip history entirely
-- `uncertain` — overrides > 0 on last confirmation → fetch history, treat as unknown
+- `learning` — seen 1–2×, no overrides
+- `confident` — seen 3+×, overrides == 0
+- `uncertain` — overrides > 0 on last confirmation
 
 **Matching logic:** For each transaction, find the first pattern where:
 1. `match_type` is satisfied against the transaction description (case-insensitive)
@@ -39,93 +53,127 @@ Each pattern entry:
 
 ---
 
-## Steps
+## Phase 1 — Needs Review
 
-### 1. Fetch needs-review transactions
+### 1. Fetch
 Call `mcp__monarch-money__get_transactions` with `needs_review: true`. No date filter.
 
-If none found → say "No transactions need review." and stop immediately. Do not make any further API calls.
-
-**Categories (cached permanently):** Read `~/.claude/skills/review-transactions/categories-cache.json`. If it exists, use it — do not call the API. If missing, call `mcp__monarch-money__get_transaction_categories` once and write the result to the cache file as:
-```json
-{ "categories": [ ... ] }
-```
-To force a refresh, delete the cache file manually.
+If none found → print "✓ No transactions need review." and proceed directly to Phase 2.
 
 ### 2. Classify each transaction
 
-For each transaction:
-
-**A. Check patterns** (from the JSON file above):
-- If a `confident` pattern matches → use it. Source = `📚 confident (seen N×)`
-- If a `learning` pattern matches → use it as suggestion but still fetch history. Source = `📖 learning (seen N×) — cross-checking`
-- If an `uncertain` pattern matches → treat as unknown. Source = `⚠️ uncertain (overridden before)`
-- If no pattern matches → unknown
+**A. Check patterns:**
+- `confident` match → use it. Source = `📚 confident (seen N×)`
+- `learning` match → use it as suggestion, still fetch history to cross-check. Source = `📖 learning (seen N×)`
+- `uncertain` match → treat as unknown. Source = `⚠️ uncertain (overridden before)`
+- No match → unknown
 
 **B. For unknowns and learning/uncertain matches:**
-Call `mcp__monarch-money__get_transactions` filtered to the same account, looking at the last 30 transactions with the same merchant name or similar description. Find the most common category used historically. If found → use it. Source = `📊 from history`
+Fetch last 30 transactions for same merchant/account. Use most common category. Source = `📊 from history`
+If inconclusive → best guess based on merchant type. Source = `🤔 best guess`
 
-If history is also inconclusive → make a best guess based on merchant type. Source = `🤔 best guess`
+### 3. Present table
 
-### 3. Present review table
-
-Show a table:
+```
+── Phase 1: Needs Review ──────────────────────────────
+```
 
 | # | Date | Account | Description | Amount | Suggested Category | Source |
 |---|------|---------|-------------|--------|--------------------|--------|
 
-Below the table:
 ```
-Reply with:
-  ok / apply   → apply all suggestions as-is
-  skip 2, 4    → skip those row numbers
-  3=Medical    → override category for row 3 (can combine: "ok, 3=Medical, 5=Transfer")
-  cancel       → abort, nothing changes
+Reply with: ok · skip 2,4 · 3=Medical · cancel · skip-phase2
 ```
 
-### 4. Wait for user confirmation
+`skip-phase2` — confirm Phase 1 but skip Phase 2 this run.
 
-Parse the reply:
-- `ok` or `apply` → apply all
-- `skip N` → remove those rows
-- `N=Category` → update that row's category before applying (find best matching category ID from the categories list)
-- `cancel` → stop
+### 4. Wait for confirmation, then apply
 
-### 5. Apply updates
+- `ok` / `apply` → apply all
+- `skip N` → skip those rows
+- `N=Category` → override that row's category
+- `cancel` → abort everything
+- `skip-phase2` → apply Phase 1, then stop before Phase 2
 
-For each transaction being applied:
-- Call `mcp__monarch-money__update_transaction` with the transaction ID, category ID, and `needs_review: false`
+For each applied transaction: call `mcp__monarch-money__update_transaction` with the category ID and `needs_review: false`.
 
-Track successes and failures.
+Track Phase 1 IDs that were processed — Phase 2 will skip them to avoid double-handling.
 
-### 6. Update the pattern file
-
-After applying, update `~/.claude/skills/review-transactions/monarch-patterns.json`:
+### 5. Update patterns (Phase 1)
 
 For each applied transaction:
-- **If the suggestion came from a `confident` or `learning` pattern and user did NOT override:**
-  - Increment `seen` by 1
-  - Update `last_seen` to today
-  - Recalculate `confidence`: seen >= 3 and overrides == 0 → `confident`, else `learning`
+- **Confident/learning match, no override:** increment `seen`, update `last_seen`, recalculate confidence (seen ≥ 3 and overrides == 0 → `confident`)
+- **Pattern matched but user overrode:** increment `overrides`, set confidence to `uncertain`, update `last_seen`. Add NEW pattern for the overridden category (seen: 1, confidence: `learning`)
+- **History/best-guess confirmed:** check if pattern exists for this merchant — if yes, increment seen; if no, add new pattern (match_type: `substring`, seen: 1, confidence: `learning`)
+- **Skipped:** no pattern update
 
-- **If the suggestion came from a pattern but user overrode the category:**
-  - Increment `overrides` by 1
-  - Set `confidence` to `uncertain`
-  - Update `last_seen`
-  - Also add a NEW pattern entry for the overridden category (seen: 1, confidence: learning)
+---
 
-- **If the suggestion came from history or was a best guess and user confirmed it:**
-  - Check if a pattern already exists for this merchant+account_hint
-  - If yes → increment seen, update confidence
-  - If no → add a new pattern: match = merchant name (or significant words from description), match_type = `substring`, seen: 1, confidence: `learning`
+## Phase 2 — Pattern Audit
 
-- **Skipped transactions:** do not update patterns for them
+```
+── Phase 2: Pattern Audit (since YYYY-MM-DD) ──────────
+```
 
-Write the updated JSON back to `~/.claude/skills/review-transactions/monarch-patterns.json`.
+### 1. Fetch
+Call `mcp__monarch-money__get_transactions` with `start_date: last_reviewed`, `end_date: today`, `limit: 100`.
 
-### 7. Report
+Exclude any transaction IDs already processed in Phase 1.
 
-Print a short summary:
-- N updated, N skipped, N failed
-- N new patterns learned, N existing patterns updated
-- Which patterns are now `confident` (if any newly crossed the threshold)
+### 2. Classify and flag
+
+For each transaction, run the pattern engine and compare against Monarch's current category:
+
+| Situation | Action | Flag |
+|-----------|--------|------|
+| `confident` pattern matches AND agrees with Monarch's category | Skip silently | — |
+| `confident` pattern matches AND **disagrees** with Monarch's category | FLAG — suggest pattern's category | 🔴 mismatch |
+| `learning` or `uncertain` pattern matches | FLAG — suggest pattern's category, verify | 🟡 low confidence |
+| No pattern, Monarch assigned a category | FLAG — fetch history, suggest best category | 🟠 unknown |
+
+For 🟠 unknowns: fetch history for the merchant (same as Phase 1 step 2B) to form a suggestion. If Monarch's category matches history → keep Monarch's category as suggestion (source: `📊 history confirms`). If history conflicts → suggest history's category (source: `📊 history`). If no history → suggest Monarch's category as default (source: `🤔 Monarch's guess — unverified`).
+
+Skip transactions under $1.00 with no pattern — too noisy to be useful.
+
+If no transactions are flagged → print "✓ No categorization issues found since [date]." and skip to the update step.
+
+### 3. Present table
+
+| # | Date | Account | Description | Amount | Monarch Says | Suggested | Flag |
+|---|------|---------|-------------|--------|--------------|-----------|------|
+
+```
+Reply with: ok · skip 2,4 · 3=Medical · cancel
+```
+
+### 4. Wait for confirmation, then apply
+
+For each applied transaction: call `mcp__monarch-money__update_transaction` with the corrected category ID. Set `needs_review: false`.
+
+### 5. Update patterns (Phase 2)
+
+Same pattern update rules as Phase 1 step 5.
+
+For 🔴 mismatch transactions where Monarch was wrong and we applied the correct category: increment the pattern's `seen` count (the pattern was right, Monarch was wrong — confidence should grow).
+
+### 6. Update state
+
+Write `~/.claude/skills/review-transactions/state.json`:
+```json
+{ "last_reviewed": "today's date" }
+```
+
+Update this **only after Phase 2 confirm** (or after Phase 1 if user passed `skip-phase2`).
+
+---
+
+## Final Report
+
+```
+── Summary ────────────────────────────────────────────
+Phase 1 (needs review):  N updated · N skipped · N failed
+Phase 2 (audit):         N updated · N skipped · N failed
+
+Patterns: N new · N updated · N newly confident
+Next audit will start from: YYYY-MM-DD
+```

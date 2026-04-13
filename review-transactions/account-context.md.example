@@ -1,0 +1,24 @@
+# Account Context for review-transactions
+
+Read this at the start of every run to correctly classify investment account activity.
+Copy this file to account-context.md and fill in your own account details.
+
+## Account structure
+
+| Monarch account name | Type | Notes |
+|---------------------|------|-------|
+| `CHECKING (...1234)` | Checking | Primary spending account |
+| `SAVINGS (...5678)` | Savings | Emergency fund |
+| `401(K) PLAN (...0000)` | 401k | Employer plan |
+| `ROTH IRA (...0000)` | Roth IRA | Individual retirement account |
+| `Health Savings Account (...0000)` | HSA | Payroll contributions |
+
+## Contribution / rollover chains
+
+Document any recurring multi-step flows here so the skill understands the full
+picture — e.g. mega backdoor Roth, 401k match, HSA employer contributions.
+
+## Recurring transaction notes
+
+Add any notes about specific merchants, account-specific rules, or categorization
+context that helps the skill make better suggestions.
