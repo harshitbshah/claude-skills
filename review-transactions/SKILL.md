@@ -5,6 +5,30 @@ description: Review Monarch Money transactions that need categorization. Uses sa
 
 # review-transactions
 
+## Long-term goal
+
+The skill is a **learning layer**, not a permanent fixture. The intended progression:
+
+```
+unknown → learning pattern → confident pattern → Monarch rule → silent pass forever
+```
+
+Once a confident pattern is promoted to a **Monarch Transaction Rule** (Settings → Rules in the
+Monarch UI), Monarch auto-categorizes those transactions correctly on import. The skill then has
+nothing to flag and the Phase 2 list shrinks toward zero over time.
+
+Monarch native features to leverage:
+- **Transaction Rules** — if description contains X (or regex), set category to Y. Direct
+  equivalent of a confident pattern. Create these in Settings → Rules.
+- **Merchant corrections** — when you manually recategorize, Monarch offers "apply to all future
+  transactions from this merchant?" Use this for one-off merchants.
+
+The skill tracks whether each pattern has been promoted via a `monarch_rule` boolean field. At the
+end of every run it lists patterns that are ready to promote so you can add them to Monarch in one
+sitting.
+
+---
+
 Two-phase transaction review:
 - **Phase 1** — transactions Monarch flagged `needs_review` (always runs, no date limit)
 - **Phase 2** — all transactions since `last_reviewed`, audited against patterns to catch mismatches and unknowns
@@ -37,6 +61,7 @@ Each pattern entry:
   "seen": 5,
   "overrides": 0,
   "confidence": "confident",   // "learning" | "confident" | "uncertain"
+  "monarch_rule": false,       // true = a Monarch Rule exists for this; skill skips flagging it
   "last_seen": "2026-03-28",
   "note": ""
 }
@@ -46,6 +71,12 @@ Each pattern entry:
 - `learning` — seen 1–2×, no overrides
 - `confident` — seen 3+×, overrides == 0
 - `uncertain` — overrides > 0 on last confirmation
+
+**`monarch_rule` flag:**
+- `false` (default) — pattern is local only; skill actively monitors these transactions
+- `true` — a Monarch Rule covers this merchant/pattern. In Phase 2, if Monarch's category agrees
+  with the pattern → skip silently. Only flag if Monarch **disagrees** (rule may be broken or
+  overridden). Never flag these as 🟠 unknown.
 
 **Matching logic:** For each transaction, find the first pattern where:
 1. `match_type` is satisfied against the transaction description (case-insensitive)
@@ -103,8 +134,8 @@ Track Phase 1 IDs that were processed — Phase 2 will skip them to avoid double
 
 For each applied transaction:
 - **Confident/learning match, no override:** increment `seen`, update `last_seen`, recalculate confidence (seen ≥ 3 and overrides == 0 → `confident`)
-- **Pattern matched but user overrode:** increment `overrides`, set confidence to `uncertain`, update `last_seen`. Add NEW pattern for the overridden category (seen: 1, confidence: `learning`)
-- **History/best-guess confirmed:** check if pattern exists for this merchant — if yes, increment seen; if no, add new pattern (match_type: `substring`, seen: 1, confidence: `learning`)
+- **Pattern matched but user overrode:** increment `overrides`, set confidence to `uncertain`, update `last_seen`. Add NEW pattern for the overridden category (seen: 1, confidence: `learning`, monarch_rule: false)
+- **History/best-guess confirmed:** check if pattern exists for this merchant — if yes, increment seen; if no, add new pattern (match_type: `substring`, seen: 1, confidence: `learning`, monarch_rule: false)
 - **Skipped:** no pattern update
 
 ---
@@ -126,9 +157,11 @@ For each transaction, run the pattern engine and compare against Monarch's curre
 
 | Situation | Action | Flag |
 |-----------|--------|------|
-| `confident` pattern matches AND agrees with Monarch's category | Skip silently | — |
-| `confident` pattern matches AND **disagrees** with Monarch's category | FLAG — suggest pattern's category | 🔴 mismatch |
-| `learning` or `uncertain` pattern matches | FLAG — suggest pattern's category, verify | 🟡 low confidence |
+| `confident` pattern, `monarch_rule: true`, Monarch agrees | Skip silently | — |
+| `confident` pattern, `monarch_rule: true`, Monarch **disagrees** | FLAG — rule may be broken | 🔴 rule broken |
+| `confident` pattern, `monarch_rule: false`, Monarch agrees | Skip silently | — |
+| `confident` pattern, `monarch_rule: false`, Monarch **disagrees** | FLAG — suggest pattern's category | 🔴 mismatch |
+| `learning` or `uncertain` pattern | FLAG — suggest pattern's category, verify | 🟡 low confidence |
 | No pattern, Monarch assigned a category | FLAG — fetch history, suggest best category | 🟠 unknown |
 
 For 🟠 unknowns: fetch history for the merchant (same as Phase 1 step 2B) to form a suggestion. If Monarch's category matches history → keep Monarch's category as suggestion (source: `📊 history confirms`). If history conflicts → suggest history's category (source: `📊 history`). If no history → suggest Monarch's category as default (source: `🤔 Monarch's guess — unverified`).
@@ -154,7 +187,7 @@ For each applied transaction: call `mcp__monarch-money__update_transaction` with
 
 Same pattern update rules as Phase 1 step 5.
 
-For 🔴 mismatch transactions where Monarch was wrong and we applied the correct category: increment the pattern's `seen` count (the pattern was right, Monarch was wrong — confidence should grow).
+For 🔴 mismatch/rule-broken transactions where Monarch was wrong and we applied the correct category: increment the pattern's `seen` count (the pattern was right, Monarch was wrong — confidence should grow).
 
 ### 6. Update state
 
@@ -175,5 +208,29 @@ Phase 1 (needs review):  N updated · N skipped · N failed
 Phase 2 (audit):         N updated · N skipped · N failed
 
 Patterns: N new · N updated · N newly confident
+
 Next audit will start from: YYYY-MM-DD
+```
+
+### Rule promotion suggestions
+
+After the summary, list every pattern where `confidence == "confident"` and `monarch_rule == false`,
+grouped by whether it needs an account-scoped rule:
+
+```
+── Ready to promote to Monarch Rules ──────────────────
+These confident patterns have no Monarch Rule yet. Add them in Settings → Rules to eliminate
+future flags entirely.
+
+  1. Description contains "ROLLOVER CASH DIRECT ROLLOVER" (account: Roth IRA) → Transfer
+  2. Description contains "contribution" exact match (account: 401k) → Retirement Contributions
+  3. Description matches regex "^IA \d+\.\d+$" (account: HSA) → HSA
+  ...
+
+Once added, set monarch_rule: true in monarch-patterns.json for each one.
+```
+
+If all confident patterns already have `monarch_rule: true` → print:
+```
+✓ All confident patterns have Monarch Rules — no manual action needed.
 ```
