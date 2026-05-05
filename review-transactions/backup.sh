@@ -5,12 +5,7 @@
 set -euo pipefail
 
 SKILL_DIR="$(cd "$(dirname "$0")" && pwd)"
-DEST="${HOME}/gdrive/Vault/claude-skills"
-
-if [ ! -d "${HOME}/gdrive" ] || ! mountpoint -q "${HOME}/gdrive"; then
-  echo "gdrive is not mounted. Run: systemctl --user start rclone-gdrive.service"
-  exit 1
-fi
+DEST="${HOME}/Documents/Vault/claude-skills"
 
 mkdir -p "$DEST"
 

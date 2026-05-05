@@ -135,7 +135,7 @@ Track Phase 1 IDs that were processed — Phase 2 will skip them to avoid double
 For each applied transaction:
 - **Confident/learning match, no override:** increment `seen`, update `last_seen`, recalculate confidence (seen ≥ 3 and overrides == 0 → `confident`)
 - **Pattern matched but user overrode:** increment `overrides`, set confidence to `uncertain`, update `last_seen`. Add NEW pattern for the overridden category (seen: 1, confidence: `learning`, monarch_rule: false)
-- **History/best-guess confirmed:** check if pattern exists for this merchant — if yes, increment seen; if no, add new pattern (match_type: `substring`, seen: 1, confidence: `learning`, monarch_rule: false)
+- **History/best-guess confirmed:** only add a pattern if Monarch's categorization is *unreliable* for this merchant — i.e. Monarch got it wrong before, or it's a merchant type known to be miscategorized. If Monarch's category is obviously correct and the merchant type is one Monarch handles reliably (e.g. investment buy/sell, standard bank transfers), skip pattern creation — a pattern that just mirrors what Monarch already does right adds no value. If adding: check if pattern exists — if yes, increment seen; if no, add new pattern (match_type: `substring`, seen: 1, confidence: `learning`, monarch_rule: false).
 - **Skipped:** no pattern update
 
 ---
@@ -162,7 +162,17 @@ For each transaction, run the pattern engine and compare against Monarch's curre
 | `confident` pattern, `monarch_rule: false`, Monarch agrees | Skip silently | — |
 | `confident` pattern, `monarch_rule: false`, Monarch **disagrees** | FLAG — suggest pattern's category | 🔴 mismatch |
 | `learning` or `uncertain` pattern | FLAG — suggest pattern's category, verify | 🟡 low confidence |
-| No pattern, Monarch assigned a category | FLAG — fetch history, suggest best category | 🟠 unknown |
+| No pattern, Monarch assigned a category, self-evident | Skip silently | — |
+| No pattern, Monarch assigned a category, not self-evident | FLAG — fetch history, suggest best category | 🟠 unknown |
+
+**Self-evident rule:** A transaction is self-evident if Monarch's category can be confirmed directly from the description without any external context. Skip these silently — no history fetch, no flag, no pattern creation. Examples:
+- Description starts with `"buy -"` and Monarch says Buy
+- Description starts with `"sell -"` and Monarch says Sell
+- Description contains `"ACH"`, `"transfer"`, `"wire"`, or `"ext trnsfr"` (case-insensitive) and Monarch says Transfer
+- Description contains `"dividend"` and Monarch says Dividends & Capital Gains
+- Description contains `"interest"` and Monarch says Interest
+
+If self-evident but Monarch's category *disagrees* with what the description implies → treat as 🔴 mismatch and flag it.
 
 For 🟠 unknowns: fetch history for the merchant (same as Phase 1 step 2B) to form a suggestion. If Monarch's category matches history → keep Monarch's category as suggestion (source: `📊 history confirms`). If history conflicts → suggest history's category (source: `📊 history`). If no history → suggest Monarch's category as default (source: `🤔 Monarch's guess — unverified`).
 
@@ -197,6 +207,55 @@ Write `~/.claude/skills/review-transactions/state.json`:
 ```
 
 Update this **only after Phase 2 confirm** (or after Phase 1 if user passed `skip-phase2`).
+
+---
+
+## Roth IRA Spreadsheet Auto-Update
+
+**Spreadsheet path:** `/home/harshit-shah/gdrive/Important Documents/Documents/Investments/Roth IRA .xlsx`  
+**Sheet:** `Sheet1` — columns: `Year | Contributions | Change In Market Value | Withdrawals`
+
+Run this step automatically after Phase 2 confirm, before the Final Report. No user prompt needed unless something is ambiguous.
+
+### 1. Identify new rollovers
+
+From the Phase 2 transaction set, find all transactions where:
+- Description contains `"ROLLOVER CASH DIRECT ROLLOVER"` (case-insensitive)
+- Account contains `"ROTH IRA"`
+
+These are the mega backdoor Roth rollovers arriving from the Amazon 401k.
+
+### 2. Find the matching realizedGainLoss
+
+For each rollover, fetch 401k transactions within ±2 days of the rollover date:
+```
+mcp__monarch-money__get_transactions(
+  start_date: rollover_date - 2 days,
+  end_date:   rollover_date + 2 days,
+  search:     "realizedGainLoss"
+)
+```
+Filter to account containing `"401"`. The matching entry will have a date 1 day before the rollover. Its `amount` is the Change in Market Value. If no match found, use `0.00`.
+
+### 3. Check for duplicates
+
+Load the spreadsheet with openpyxl. A row is already present if a row exists with the same `Year` AND `Contributions` value (exact float match). Skip duplicates silently.
+
+### 4. Append new rows
+
+For each new rollover not already in the spreadsheet:
+```python
+ws.append([year, contribution_amount, realized_gain_loss, None])
+wb.save(path)
+```
+
+### 5. Report in summary
+
+Add a line to the Final Report:
+```
+Roth IRA sheet:      N rows added · [amounts]
+```
+If nothing added: `Roth IRA sheet: ✓ already up to date`
 
 ---
 
