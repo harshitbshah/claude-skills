@@ -2,3 +2,6 @@ review-transactions/monarch-patterns.json
 review-transactions/categories-cache.json
 review-transactions/account-context.md
 review-transactions/state.json
+
+cashflow-review/history.json
+cashflow-review/insights.json

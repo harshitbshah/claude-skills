@@ -80,6 +80,44 @@ Reply with: ok / skip 2, 4 / 3=Medical / cancel
 
 ---
 
+### `/cashflow-review`
+
+A monthly cashflow retrospective. Monarch's own Cashflow view only shows you one month in
+isolation — this skill remembers every month you've reviewed and flags what's actually unusual
+against *your own* trailing average, not a generic budget. Confirmed seasonal expenses (property
+tax, annual renewals) get remembered too, so they stop triggering false alarms.
+
+**Before:** Eyeballing Monarch's cashflow page each month and trying to remember if last month's
+Travel spend was normal.
+**After:** "Groceries up 18% vs your 6-month average" — with the baseline building automatically
+every run.
+
+**How it works:**
+1. Pulls the target month's income/expense breakdown from Monarch (`get_cashflow`,
+   `get_cashflow_summary`), filtering out investment noise (Buy/Sell/Transfer) via Monarch's own
+   `income`/`expense`/`transfer` category-group typing — no hand-maintained exclusion list
+2. Computes trailing 3- and 6-month averages per category from `history.json`
+3. Flags categories that deviate meaningfully, cross-referenced against `insights.json` so known
+   seasonal expenses (e.g. semi-annual property tax) don't get re-flagged
+4. For real anomalies, calls out the specific merchant driving the move, not just "category is up"
+5. You annotate each flag as one-off / recurring / seasonal — saved back to `insights.json`
+6. Appends the month to `history.json`, so next month's baseline is sharper
+
+Also doubles as a standing knowledge base for ad-hoc questions — "what am I paying for newsletter
+subscriptions", "how much did Travel cost this year" — answered from `history.json`/`insights.json`
+first, falling back to a live Monarch query only for merchant-level detail those files don't carry.
+
+**Files:**
+- `cashflow-review/SKILL.md` — skill definition
+- `cashflow-review/history.json` — monthly snapshots (full category/group breakdowns, not just anomalies) — the trailing-average source and the data ad-hoc category questions are answered from (grows over time, gitignored)
+- `cashflow-review/insights.json` — confirmed seasonal/recurring expense annotations, plus a merchant-level `subscriptions` registry (cadence, typical amount, active/watch/lapsed status) built up as months get reviewed (gitignored)
+
+**Requirements:**
+- Same Monarch Money MCP server as `/review-transactions`
+- Run `/review-transactions` first for the target month — this skill trusts Monarch's categories as given
+
+---
+
 ## Setup
 
 ### 1. Clone
@@ -106,6 +144,10 @@ Find your SavvyTrader portfolio IDs by calling `mcp__savvytrader__get_my_portfol
 ### 3. Configure `/review-transactions`
 
 No config needed. On first run it creates `monarch-patterns.json` automatically. The file is gitignored so your personal patterns stay local.
+
+### 4. Configure `/cashflow-review`
+
+No config needed. On first run it creates `history.json` and `insights.json` automatically, both gitignored. The first couple of months won't have a trend to compare against — that's expected, the baseline builds as you run it.
 
 ---
 

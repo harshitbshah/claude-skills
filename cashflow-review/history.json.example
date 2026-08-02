@@ -1,0 +1,49 @@
+{
+  "version": 1,
+  "months": [
+    {
+      "month": "2026-07",
+      "income": {
+        "total": 20787.89,
+        "paychecks": 14092.24,
+        "other": 324.27,
+        "retirement_contributions": 5124.90,
+        "hsa": 657.69,
+        "dividends": 135.22,
+        "interest": 453.57
+      },
+      "expenses": {
+        "total": 17572.83,
+        "by_group": {
+          "Housing": 2462.12,
+          "Bills & Utilities": 879.95,
+          "Food & Dining": 1128.42,
+          "Travel & Lifestyle": 4273.48,
+          "Shopping": 919.98,
+          "Education": 104.15,
+          "Health & Wellness": 11.32,
+          "Financial": 6622.61,
+          "Other": 16.95,
+          "Business": 197.65,
+          "Subscriptions": 703.86,
+          "Gifts & Donations": 32.0,
+          "Auto & Transport": 220.34
+        },
+        "by_category": {
+          "Mortgage": 2017.12,
+          "Groceries": 898.86,
+          "Taxes": 3625.93
+        }
+      },
+      "savings": 3215.06,
+      "savings_rate": 0.1547,
+      "top_merchants": [
+        { "name": "United Airlines", "amount": 1728.84 },
+        { "name": "Airbnb", "amount": 1469.11 }
+      ],
+      "notes": [
+        "Property tax bill hit this month ($3577.86) - semi-annual, see insights.json"
+      ]
+    }
+  ]
+}

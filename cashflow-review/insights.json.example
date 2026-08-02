@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "recurring_patterns": [
+    {
+      "category_or_group": "Taxes",
+      "typical_months": [1, 7],
+      "typical_amount": 3600,
+      "note": "Township property tax bill, due ~Jan and ~Jul. Not an anomaly.",
+      "confirmed": "2026-08-02"
+    }
+  ],
+  "standing_notes": [
+    "Cash & ATM withdrawals are just cash leaving the account, not necessarily spent - don't flag pure ATM swings unless unusually large."
+  ],
+  "subscriptions": [
+    {
+      "merchant": "X (Twitter) Premium",
+      "category": "Newsletter",
+      "cadence": "monthly",
+      "typical_amount": 10.00,
+      "first_seen": "2026-05-29",
+      "last_seen": "2026-07-29",
+      "status": "active",
+      "note": "Charges vary $5.33-$14.93/mo."
+    }
+  ]
+}
