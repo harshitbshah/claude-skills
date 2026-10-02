@@ -5,3 +5,6 @@ review-transactions/state.json
 
 cashflow-review/history.json
 cashflow-review/insights.json
+
+# Claude-managed synced skills (not ours)
+synced/

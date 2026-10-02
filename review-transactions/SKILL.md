@@ -13,19 +13,20 @@ The skill is a **learning layer**, not a permanent fixture. The intended progres
 unknown → learning pattern → confident pattern → Monarch rule → silent pass forever
 ```
 
-Once a confident pattern is promoted to a **Monarch Transaction Rule** (Settings → Rules in the
-Monarch UI), Monarch auto-categorizes those transactions correctly on import. The skill then has
+Once a confident pattern is promoted to a **Monarch Transaction Rule** (created by the skill via
+`mcp__monarch-money__create_transaction_rule` after the user approves), Monarch auto-categorizes those transactions correctly on import. The skill then has
 nothing to flag and the Phase 2 list shrinks toward zero over time.
 
 Monarch native features to leverage:
-- **Transaction Rules** — if description contains X (or regex), set category to Y. Direct
-  equivalent of a confident pattern. Create these in Settings → Rules.
+- **Transaction Rules** — if description/merchant contains or equals X (no regex support), set
+  category to Y (and optionally rename the merchant). Direct equivalent of a confident pattern.
+  The skill creates these itself — see "Rule promotion" at the end.
 - **Merchant corrections** — when you manually recategorize, Monarch offers "apply to all future
   transactions from this merchant?" Use this for one-off merchants.
 
 The skill tracks whether each pattern has been promoted via a `monarch_rule` boolean field. At the
-end of every run it lists patterns that are ready to promote so you can add them to Monarch in one
-sitting.
+end of every run it lists patterns that are ready to promote and, on approval, creates the Monarch
+Rules and flips the flag.
 
 ---
 
@@ -279,23 +280,53 @@ This is higher than the `confident` bar (3+) because a Monarch Rule applies glob
 review — you want to be sure before making it permanent. Infrequent merchants may never hit the
 threshold; that's fine, the skill keeps handling them.
 
-After the summary, list every pattern meeting the threshold:
+After the summary, list every pattern meeting the threshold, showing the exact rule each one would
+become:
 
 ```
 ── Ready to promote to Monarch Rules ──────────────────
-These patterns have been seen 5+ times with no overrides. Add them in Settings → Rules to
-eliminate future flags entirely.
+These patterns have been seen 5+ times with no overrides.
 
-  1. Description contains "ROLLOVER CASH DIRECT ROLLOVER" (account: Roth IRA) → Transfer  [seen: 20]
-  2. Description contains "contribution" exact match (account: 401k) → Retirement Contributions  [seen: 6]
-  3. Description matches regex "^IA \d+\.\d+$" (account: HSA) → HSA  [seen: 8]
+  1. Original statement contains "rollover cash direct rollover" (account: ROTH IRA) → Transfer  [seen: 20]
+  2. Merchant name equals "contribution" (account: AMAZON 401(K)) → Retirement Contributions  [seen: 6]
   ...
 
-Once added, set monarch_rule: true in monarch-patterns.json for each one.
+Reply with: promote all · promote 1,3 · skip
 ```
+
+**Never create rules without this confirmation.** Rules apply globally with no review.
+
+On approval, for each selected pattern:
+1. **Check for an existing rule first.** Call `mcp__monarch-money__get_transaction_rules` once and
+   look for a rule with the same criteria value (case-insensitive) and the same account scope. If
+   one exists and already sets the pattern's category, skip creating and just mark
+   `monarch_rule: true`. If it exists but sets a different category, report it and don't touch it.
+2. **Map the pattern to a rule:**
+   - `match_type: "substring"` → operator `contains`; `"exact"` → operator `eq`.
+   - `match_type: "regex"` → **do not create** (Monarch rules don't support regex). Report it as
+     "needs manual rewrite as substring/exact".
+   - Criterion field: use `original_statement_criteria` (patterns match the raw description).
+   - `account_hint` → resolve to account ID(s) via `mcp__monarch-money__get_accounts` (account
+     display name contains the hint, case-insensitive). If the hint matches 0 accounts or more
+     than one, stop and ask instead of guessing.
+   - Category → `set_category_action` with the ID from `categories-cache.json`.
+   - Add `set_merchant_action` only if the user asks for a merchant rename too.
+   - Leave `apply_to_existing_transactions` off unless the user asks to backfill.
+3. Call `mcp__monarch-money__create_transaction_rule`, for example:
+   ```json
+   { "rule": {
+       "original_statement_criteria": [{ "operator": "contains", "value": "rollover cash direct rollover" }],
+       "account_ids": ["<roth ira account id>"],
+       "set_category_action": "<Transfer category id>"
+   } }
+   ```
+4. On success, set `monarch_rule: true` on that pattern in `monarch-patterns.json`. On error, leave
+   the flag false and report the error message.
+
+Add a line to the Final Report: `Monarch rules: N created · N already existed · N failed`.
 
 If no patterns meet the threshold → print nothing (skip this section).
 If all eligible patterns already have `monarch_rule: true` → print:
 ```
-✓ All promotion-ready patterns have Monarch Rules — no manual action needed.
+✓ All promotion-ready patterns have Monarch Rules — nothing to promote.
 ```
