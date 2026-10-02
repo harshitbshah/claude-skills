@@ -31,11 +31,7 @@ Run: `gws sheets spreadsheets values get --params "{\"spreadsheetId\": \"$PORTFO
 Parse rows where column B (index 1) looks like a valid ticker (letters only, 1–5 chars). Skip rows where column B is numeric, empty, or clearly a metadata row. Extract: ticker → quantity (column D, strip commas).
 
 **SavvyTrader:**
-Call `mcp__savvytrader__get_holdings` **twice in parallel** — once for each portfolio:
-- `portfolio_id: $SAVVY_MAIN_PORTFOLIO_ID` → your main portfolio
-- `portfolio_id: $SAVVY_ETF_PORTFOLIO_ID` → your ETF portfolio (omit this call if you only have one)
-
-Merge the two `holdings` arrays into one. If the same ticker appears in both portfolios, sum the quantities. Each entry has `symbol` and `quantity`.
+Call `mcp__savvytrader__get_holdings` with `portfolio_id: $SAVVY_MAIN_PORTFOLIO_ID` (the only portfolio — the former ETF portfolio was deleted). Each entry has `symbol` and `quantity`.
 
 ### 2. Compare
 
@@ -50,7 +46,7 @@ Print a summary in this format:
 
 ```
 === US Portfolio Comparison ===
-Sheet: N tickers | SavvyTrader: N tickers (portfolios merged)
+Sheet: N tickers | SavvyTrader: N tickers
 
 ✅ All tickers present in both  (or list missing ones)
 

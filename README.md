@@ -23,7 +23,7 @@ Diffs your US portfolio between a Google Sheet (source of truth, updated daily b
 
 ```
 === US Portfolio Comparison ===
-Sheet: 28 tickers | SavvyTrader: 27 tickers (portfolios merged)
+Sheet: 28 tickers | SavvyTrader: 27 tickers
 
 ❌ ONLY IN SHEET (not in SavvyTrader):
   PGY — 757.68 shares  (position may be closed in brokerage but not removed from model)
@@ -36,7 +36,7 @@ Last synced: 2026-04-10 14:02 UTC
 
 **How it works:**
 1. Reads holdings from Google Sheet via `gws` CLI
-2. Fetches all SavvyTrader portfolios via the [savvytrader-client](https://github.com/harshitbshah/savvytrader-client) MCP server — in parallel
+2. Fetches your SavvyTrader portfolio holdings via the [savvytrader-client](https://github.com/harshitbshah/savvytrader-client) MCP server
 3. Merges and diffs: missing tickers, extra tickers, quantity mismatches above tolerance
 4. Reports clean one-liners when in sync, detailed table when issues found
 
@@ -57,6 +57,7 @@ Reviews Monarch Money transactions flagged for review (`needs_review: true`). Us
 3. For unknowns, fetches the last 30 transactions from the same merchant to infer category
 4. Presents a review table — you confirm, skip, or override individual rows
 5. Applies updates to Monarch and writes new patterns back to the local file
+6. Offers to promote patterns seen 5+ times with no overrides into native Monarch Rules (created on your approval), so those transactions stop needing review
 
 **Example output:**
 
@@ -135,11 +136,10 @@ Set these env vars in your shell. The recommended approach is a private dotfiles
 ```bash
 export PORTFOLIO_SHEET_ID="your-google-sheet-id"
 export SAVVY_MAIN_PORTFOLIO_ID="your-main-portfolio-id"
-export SAVVY_ETF_PORTFOLIO_ID="your-etf-portfolio-id"
 ```
 
 Find your Sheet ID in the URL: `docs.google.com/spreadsheets/d/<ID>/`  
-Find your SavvyTrader portfolio IDs by calling `mcp__savvytrader__get_my_portfolios` in a Claude Code session.
+Find your SavvyTrader portfolio ID by calling `mcp__savvytrader__get_my_portfolios` in a Claude Code session.
 
 ### 3. Configure `/review-transactions`
 
