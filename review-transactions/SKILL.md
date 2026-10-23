@@ -14,7 +14,7 @@ unknown → learning pattern → confident pattern → Monarch rule → silent p
 ```
 
 Once a confident pattern is promoted to a **Monarch Transaction Rule** (created by the skill via
-`mcp__monarch-money__create_transaction_rule` after the user approves), Monarch auto-categorizes those transactions correctly on import. The skill then has
+the "create rule" tool below after the user approves), Monarch auto-categorizes those transactions correctly on import. The skill then has
 nothing to flag and the Phase 2 list shrinks toward zero over time.
 
 Monarch native features to leverage:
@@ -36,12 +36,38 @@ Two-phase transaction review:
 
 ---
 
+## Monarch tools
+
+Two MCP servers may be connected: the **official** one (`mcp__monarch__*`, OAuth) and the
+**community** one (`mcp__monarch-money__*`, cookie auth). Prefer official; fall back to community
+per call when the official tool isn't available or errors. Steps below use the logical names.
+
+| Logical | Official | Community |
+|---|---|---|
+| get categories | `GetCategories` | `get_transaction_categories` |
+| get accounts | `GetAccounts` | `get_accounts` |
+| get transactions | `GetTransactions` | `get_transactions` |
+| update transaction | `UpdateTransaction` | `update_transaction` |
+| list rules | `ListRules` | `get_transaction_rules` |
+| create rule | `CreateRule` (merchant-name criteria only) | `create_transaction_rule` |
+
+Argument differences on the official server:
+- Every call needs `intent: "organizing_finances"`.
+- `GetTransactions`: filters go in a JSON string, e.g. `filters: '{"transaction_type": "All",
+  "needs_review": true}'`; `start_date`/`end_date` are required (use `2020-01-01` → today for
+  "no date filter"); free-text search goes in the filters JSON as `"search"`. Page with
+  `offset`/`next_offset` (max `limit` 100).
+- `UpdateTransaction`: `category_id` and `review_status: "reviewed"` (instead of `needs_review: false`).
+- IDs (categories, accounts) are the same across both servers, so `categories-cache.json` works with either.
+
+---
+
 ## Startup: read these files first
 
 1. **`~/.claude/skills/review-transactions/monarch-patterns.json`** — categorization rules. If missing, treat as empty array.
 2. **`~/.claude/skills/review-transactions/account-context.md`** — account structure and financial setup context. Read this to correctly classify investment account activity.
 3. **`~/.claude/skills/review-transactions/state.json`** — watermark. If missing, use 30 days ago as default `last_reviewed`.
-4. **`~/.claude/skills/review-transactions/categories-cache.json`** — category list. If missing, call `mcp__monarch-money__get_transaction_categories` once and write it as `{ "categories": [ ... ] }`. Never re-fetch if it exists.
+4. **`~/.claude/skills/review-transactions/categories-cache.json`** — category list. If missing, call "get categories" once and write it as `{ "categories": [ ... ] }`. Never re-fetch if it exists.
 
 **state.json shape:**
 ```json
@@ -88,7 +114,7 @@ Each pattern entry:
 ## Phase 1 — Needs Review
 
 ### 1. Fetch
-Call `mcp__monarch-money__get_transactions` with `needs_review: true`. No date filter.
+Call "get transactions" with the needs-review filter. No date filter.
 
 If none found → print "✓ No transactions need review." and proceed directly to Phase 2.
 
@@ -127,7 +153,7 @@ Reply with: ok · skip 2,4 · 3=Medical · cancel · skip-phase2
 - `cancel` → abort everything
 - `skip-phase2` → apply Phase 1, then stop before Phase 2
 
-For each applied transaction: call `mcp__monarch-money__update_transaction` with the category ID and `needs_review: false`.
+For each applied transaction: call "update transaction" with the category ID and mark it reviewed.
 
 Track Phase 1 IDs that were processed — Phase 2 will skip them to avoid double-handling.
 
@@ -148,7 +174,7 @@ For each applied transaction:
 ```
 
 ### 1. Fetch
-Call `mcp__monarch-money__get_transactions` with `start_date: last_reviewed`, `end_date: today`, `limit: 100`.
+Call "get transactions" with `start_date: last_reviewed`, `end_date: today`, `limit: 100` (page if more).
 
 Exclude any transaction IDs already processed in Phase 1.
 
@@ -192,7 +218,7 @@ Reply with: ok · skip 2,4 · 3=Medical · cancel
 
 ### 4. Wait for confirmation, then apply
 
-For each applied transaction: call `mcp__monarch-money__update_transaction` with the corrected category ID. Set `needs_review: false`.
+For each applied transaction: call "update transaction" with the corrected category ID and mark it reviewed.
 
 ### 5. Update patterns (Phase 2)
 
@@ -230,10 +256,10 @@ These are the mega backdoor Roth rollovers arriving from the Amazon 401k.
 
 For each rollover, fetch 401k transactions within ±2 days of the rollover date:
 ```
-mcp__monarch-money__get_transactions(
+get transactions(
   start_date: rollover_date - 2 days,
   end_date:   rollover_date + 2 days,
-  search:     "realizedGainLoss"
+  search:     "realizedGainLoss"     # official: inside the filters JSON
 )
 ```
 Filter to account containing `"401"`. The matching entry will have a date 1 day before the rollover. Its `amount` is the Change in Market Value. If no match found, use `0.00`.
@@ -297,8 +323,10 @@ Reply with: promote all · promote 1,3 · skip
 **Never create rules without this confirmation.** Rules apply globally with no review.
 
 On approval, for each selected pattern:
-1. **Check for an existing rule first.** Call `mcp__monarch-money__get_transaction_rules` once and
-   look for a rule with the same criteria value (case-insensitive) and the same account scope. If
+1. **Check for an existing rule first.** Call "list rules" once and
+   look for a rule with the same criteria value (case-insensitive) and the same account scope.
+   Official `ListRules` shows the value under `merchant_names`, `merchant_names_legacy` or
+   `original_statement_values`; community shows `*_criteria` arrays. If
    one exists and already sets the pattern's category, skip creating and just mark
    `monarch_rule: true`. If it exists but sets a different category, report it and don't touch it.
 2. **Map the pattern to a rule:**
@@ -306,20 +334,28 @@ On approval, for each selected pattern:
    - `match_type: "regex"` → **do not create** (Monarch rules don't support regex). Report it as
      "needs manual rewrite as substring/exact".
    - Criterion field: use `original_statement_criteria` (patterns match the raw description).
-   - `account_hint` → resolve to account ID(s) via `mcp__monarch-money__get_accounts` (account
+   - `account_hint` → resolve to account ID(s) via "get accounts" (account
      display name contains the hint, case-insensitive). If the hint matches 0 accounts or more
      than one, stop and ask instead of guessing.
    - Category → `set_category_action` with the ID from `categories-cache.json`.
    - Add `set_merchant_action` only if the user asks for a merchant rename too.
    - Leave `apply_to_existing_transactions` off unless the user asks to backfill.
-3. Call `mcp__monarch-money__create_transaction_rule`, for example:
-   ```json
-   { "rule": {
-       "original_statement_criteria": [{ "operator": "contains", "value": "rollover cash direct rollover" }],
-       "account_ids": ["<roth ira account id>"],
-       "set_category_action": "<Transfer category id>"
-   } }
-   ```
+3. **Pick the server.** Official `CreateRule` only matches on merchant name, not original
+   statement, and can't backfill existing transactions. So:
+   - Community `create_transaction_rule` connected → use it (supports everything above), e.g.:
+     ```json
+     { "rule": {
+         "original_statement_criteria": [{ "operator": "contains", "value": "rollover cash direct rollover" }],
+         "account_ids": ["<roth ira account id>"],
+         "set_category_action": "<Transfer category id>"
+     } }
+     ```
+   - Only official connected → don't silently convert a statement pattern into a merchant-name rule
+     (merchant names are Monarch-cleaned and often differ from the raw description). Show the user
+     the transaction's merchant name next to the pattern and offer: (a) create a merchant-name rule
+     with `CreateRule(merchant_names: [...], account_ids: [...], set_category_id: ...)`, or
+     (b) leave it for them to create in the Monarch web app. If backfill was requested, tell them to
+     run the rule from its detail page in the web app.
 4. On success, set `monarch_rule: true` on that pattern in `monarch-patterns.json`. On error, leave
    the flag false and report the error message.
 

@@ -77,7 +77,9 @@ Reply with: ok / skip 2, 4 / 3=Medical / cancel
 - `review-transactions/categories-cache.json` — Monarch category list (cached permanently, gitignored; delete to refresh)
 
 **Requirements:**
-- [Monarch Money MCP server](https://github.com/monarch-money/monarch-money) — v0.x or later (requires `needs_review` filter support, merged in [bradleyseanf/monarchmoneycommunity#20](https://github.com/bradleyseanf/monarchmoneycommunity/pull/20))
+- A Monarch Money MCP server. Either works; when both are connected the skills prefer the official one:
+  - **Official** (recommended): `claude mcp add --transport http monarch https://api.monarch.com/mcp`, then authenticate via `/mcp` (OAuth). It can't create original-statement rules or set budgets.
+  - **Community** [monarch-mcp-server](https://github.com/robcerda/monarch-mcp-server) (requires `needs_review` filter support, merged in [bradleyseanf/monarchmoneycommunity#20](https://github.com/bradleyseanf/monarchmoneycommunity/pull/20)). Used for original-statement rule creation when connected.
 
 ---
 

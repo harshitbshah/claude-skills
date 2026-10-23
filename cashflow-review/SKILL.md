@@ -106,16 +106,31 @@ before proceeding (the account may have been re-synced since).
 
 ## Step 2 — Fetch the month's data
 
+Two Monarch MCP servers may be connected: **official** (`mcp__monarch__*`) and **community**
+(`mcp__monarch-money__*`). Prefer official; fall back to community if the official tools aren't
+available or error. Every official call needs `intent: "budgeting"`.
+
 Call, for `start_date`/`end_date` spanning the full target month:
+
+**Official server:**
+- `GetCashFlow` with no `base_query` → `total_income`, `total_expense`, `net_savings`, `net_savings_rate`.
+- `GetCashFlow` with `base_query: '{"group_by_entity": "category_group"}'` and again with
+  `"category"` and `"merchant"`, each with `filters: '{"category_type": "expense"}'`; repeat
+  `category` with `"income"` for the income breakdown. Rows are `{entity_name, entity_id, amount}`.
+  **Expenses come back negative** — store absolute values in `history.json`.
+- `GetBudget` (`include_actuals: true`) — same "skip if every budgeted amount is 0" rule as below.
+
+**Community server:**
 - `mcp__monarch-money__get_cashflow_summary` — quick `sumIncome`, `sumExpense`, `savings`, `savingsRate`.
 - `mcp__monarch-money__get_cashflow` — `byCategory`, `byCategoryGroup`, `byMerchant`. **This can exceed the tool's output limit** — if so, save to the scratchpad and process with `jq`/`python`, never try to read it raw.
 - `mcp__monarch-money__get_budgets` — only useful if `plannedAmount` is nonzero somewhere in `monthlyAmountsByCategoryGroup`/`monthlyAmountsByCategory`. If every planned amount is 0 (no budgets configured in Monarch yet), skip budget comparison for this run — trend-vs-history is the primary signal, not Monarch's budget feature.
 
-**Filtering investment noise:** `byCategoryGroup` and `byCategory` each carry a `groupBy...group.type`
-field of `income`, `expense`, or `transfer`. Investment mechanics (Buy, Sell, Transfer, Credit Card
-Payment) land under `type: "transfer"` — **exclude these entirely**, don't hand-maintain a category
-exclusion list. Use `type: "expense"` groups/categories for the spending picture and `type: "income"`
-for the income picture. Note that `income` includes non-spendable amounts (Retirement Contributions,
+**Filtering investment noise:** Investment mechanics (Buy, Sell, Transfer, Credit Card Payment)
+are `transfer`-type categories — **exclude these entirely**, don't hand-maintain a category
+exclusion list. On the official server the `category_type` filter does this for you. On the
+community server, `byCategoryGroup` and `byCategory` each carry a `groupBy...group.type` field of
+`income`, `expense`, or `transfer`: use `type: "expense"` groups/categories for the spending
+picture and `type: "income"` for the income picture. Note that `income` includes non-spendable amounts (Retirement Contributions,
 HSA, Dividends & Capital Gains, Interest) alongside Paychecks/Other Income — report the Paychecks +
 Other Income figure separately from the full income total so "savings rate" isn't inflated by money
 that was never spendable cash in the first place.
@@ -233,8 +248,9 @@ Answer in this order, cheapest first:
    been through a retro, though — check date coverage first.
 3. **Live Monarch query** — only when the question needs merchant-level detail *within* a category
    (history.json doesn't store per-category merchant breakdowns, only top overall merchants per
-   month) or covers a month not yet in `history.json`. Use `get_transactions` with `category_ids` for
-   this rather than re-pulling all of `get_cashflow`.
+   month) or covers a month not yet in `history.json`. Use official `GetCashFlow` with
+   `group_by_entity: "merchant"` plus an `include_categories` filter, or `GetTransactions` /
+   community `get_transactions` with `category_ids`, rather than re-pulling all of `get_cashflow`.
 
 When a live query surfaces something worth remembering (a newly-discovered subscription, a
 mischaracterized total), fold it back into `subscriptions` or `recurring_patterns` before finishing
@@ -244,6 +260,7 @@ the response — same instinct as Step 6.5, just triggered by a question instead
 
 - This skill is read-only against Monarch except when the user explicitly asks to adjust a budget
   target — even then, only call `mcp__monarch-money__set_budget_amount` after explicit confirmation,
-  never automatically.
+  never automatically. The official server has no budget-write tool; if the community server isn't
+  connected, tell the user to change the budget in the Monarch app.
 - Run `/review-transactions` before this for any month where you haven't done a categorization pass
   — this skill trusts Monarch's categories as given and doesn't re-verify them.
