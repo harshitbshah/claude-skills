@@ -23,12 +23,25 @@ Compare US portfolio holdings between the Google Sheet and SavvyTrader. Surface 
 
 ### 1. Fetch both sources in parallel
 
-**Google Sheet:**
+**Google Sheet — primary: Google Drive connector.**
+Get the ID with `echo $PORTFOLIO_SHEET_ID` (source `~/.bashrc` first), then call
+`mcp__claude_ai_Google_Drive__read_file_content` with `fileId` = that ID. Load the tool via
+ToolSearch first if it's deferred. The connector returns the whole workbook as markdown tables, one
+`### Sheet Name:` section per tab, so find the `US Portfolio` section and read its table.
+
+Check the section is complete before trusting it: it must exist, and its last row must be the
+totals row (column B is a number equal to the ticker count). If the section is missing or cut off
+(the connector can truncate large files), use the fallback.
+
+**Google Sheet — fallback: `gws` CLI.**
 Run: `gws sheets spreadsheets values get --params "{\"spreadsheetId\": \"$PORTFOLIO_SHEET_ID\", \"range\": \"US Portfolio!A2:F100\"}"`
 
 (Must use double-quote escaping — single quotes break on `!` in the range string)
 
-Parse rows where column B (index 1) looks like a valid ticker (letters only, 1–5 chars). Skip rows where column B is numeric, empty, or clearly a metadata row. Extract: ticker → quantity (column D, strip commas).
+If `gws` fails with `invalid_grant`, its refresh token has expired. Tell the user to run
+`! gws auth login`, and don't retry.
+
+Either way, parse rows where column B (index 1) looks like a valid ticker (letters only, 1–5 chars). Skip rows where column B is numeric, empty, or clearly a metadata row. Extract: ticker → quantity (column D, strip commas).
 
 **SavvyTrader:**
 Call `mcp__savvytrader__get_holdings` with `portfolio_id: $SAVVY_MAIN_PORTFOLIO_ID` (the only portfolio — the former ETF portfolio was deleted). Each entry has `symbol` and `quantity`.
