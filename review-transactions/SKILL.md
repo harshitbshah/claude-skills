@@ -262,7 +262,9 @@ get transactions(
   search:     "realizedGainLoss"     # official: inside the filters JSON
 )
 ```
-Filter to account containing `"401"`. The matching entry will have a date 1 day before the rollover. Its `amount` is the Change in Market Value. If no match found, use `0.00`.
+Filter to account containing `"401"`. The matching entry will have a date 1 day before the rollover. Its `amount` is the Change in Market Value.
+
+If no match is found, do NOT write `0.00` (this silently put 0.00 instead of 76.98 for the 2026-04-17 rollover). Instead, compute the expected value as `rollover − base`, where `base` is the previous row's `Contributions − Change In Market Value` (the per-paycheck after-tax amount, constant within a year). Show it to the user as a ⚠️ estimate and ask them to confirm or paste the real value from the 401k history CSV (Fidelity NetBenefits → History → download; row `SSGA LG CAP GROWTH, Change in Market Value` on the rollover date) before appending.
 
 ### 3. Check for duplicates
 
