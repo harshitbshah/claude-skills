@@ -270,9 +270,15 @@ Load the spreadsheet with openpyxl. A row is already present if a row exists wit
 
 ### 4. Append new rows
 
-For each new rollover not already in the spreadsheet:
+For each new rollover not already in the spreadsheet, write directly below the last row that has data. Do NOT use `ws.append()`: the sheet has ~1000 pre-formatted empty rows, so `append()` lands at row 1001+ (this happened 2026-04/05 and had to be moved by hand).
 ```python
-ws.append([year, contribution_amount, realized_gain_loss, None])
+import copy
+last = max(r for r in range(1, ws.max_row + 1) if ws.cell(r, 1).value is not None)
+for i, (year, contribution_amount, realized_gain_loss) in enumerate(new_rows, start=1):
+    ws.row_dimensions[last + i].height = ws.row_dimensions[last].height  # data rows are 22.5pt; empty rows default to 15.75
+    for c, v in enumerate([year, contribution_amount, realized_gain_loss, None], start=1):
+        ws.cell(last + i, c).value = v
+        ws.cell(last + i, c)._style = copy.copy(ws.cell(last, c)._style)
 wb.save(path)
 ```
 
