@@ -62,6 +62,24 @@ Argument differences on the official server:
 
 ---
 
+## Data lives on the OCI VM (single source of truth)
+
+The data files below are shared with Meta Muse, which runs this skill on the VM (`clouddesktop`).
+- **At startup, before reading anything:** `bash ~/.claude/skills/review-transactions/sync.sh pull`
+  (no-op on the VM). If it fails (VM unreachable), stop and tell the user; don't run on stale data.
+- **Every time you finish writing data files** (after Phase 1 if `skip-phase2`, after Phase 2, after
+  rule promotion): `bash ~/.claude/skills/review-transactions/sync.sh push`. Exit code 2 means
+  another run changed the VM data meanwhile: don't overwrite. Pull, re-apply this run's pattern
+  updates on top, and push again.
+
+## Running headless (Meta Muse via `review-txn`)
+
+When run with `claude -p` there is no live chat: each turn ends after you print a table, and the
+user's reply ("ok", "3=Medical", "promote all"…) arrives as the next resumed prompt. So:
+- End every turn that needs a decision with the table and the `Reply with:` line, nothing after it.
+- Keep output phone-friendly: short descriptions (≤30 chars), no extra prose.
+- Never treat the absence of a reply as approval.
+
 ## Startup: read these files first
 
 1. **`~/.claude/skills/review-transactions/monarch-patterns.json`** — categorization rules. If missing, treat as empty array.
@@ -243,6 +261,13 @@ Update this **only after Phase 2 confirm** (or after Phase 1 if user passed `ski
 **Sheet:** `Sheet1` — columns: `Year | Contributions | Change In Market Value | Withdrawals`
 
 Run this step automatically after Phase 2 confirm, before the Final Report. No user prompt needed unless something is ambiguous.
+
+**If the spreadsheet path doesn't exist** (Google Drive isn't mounted on the VM): do steps 1–2, then
+append the rows (`{year, contribution, change_in_market_value, estimated: bool}`) to
+`~/.claude/skills/review-transactions/pending-roth.json` (a JSON array, deduplicated on year+contribution)
+and report `Roth IRA sheet: ⏳ N rows queued for the laptop`.
+**On the laptop, at the start of this step**, also take any rows from `pending-roth.json`, run them
+through steps 3–4, then empty the file (`[]`). Confirm estimated rows with the user before writing them.
 
 ### 1. Identify new rollovers
 

@@ -1,0 +1,58 @@
+#!/usr/bin/env bash
+# Phone-friendly front end for the /review-transactions skill, for Meta Muse over SSH.
+#
+#   review-txn start            # begin a new review; prints the first table
+#   review-txn reply "<text>"   # answer the last table: ok | skip 2,4 | 3=Medical | cancel | promote all ...
+#   review-txn status           # show the current session id and when it started
+#
+# Runs Claude Code headless on this VM. The conversation is kept between calls via --resume.
+
+set -euo pipefail
+
+export PATH="$HOME/.npm-global/bin:$HOME/.local/bin:$PATH"
+export PYTHON_KEYRING_BACKEND=keyrings.alt.file.PlaintextKeyring
+
+STATE_DIR="$HOME/.cache/review-txn"
+SESSION_FILE="$STATE_DIR/session"
+mkdir -p "$STATE_DIR"
+cd "$HOME"
+
+ALLOWED="mcp__monarch-money,Read,Write,Edit,Glob,Grep,Skill"
+DENIED="mcp__monarch-money__delete_transaction,mcp__monarch-money__delete_account,mcp__monarch-money__delete_transaction_category,mcp__monarch-money__delete_transaction_rule,mcp__monarch-money__delete_transaction_tag,Bash"
+
+run_claude() {
+  # $@ = extra args; prints the assistant's final text, saves the session id
+  local out
+  out="$(claude -p --output-format json \
+          --allowedTools "$ALLOWED" --disallowedTools "$DENIED" "$@")" || {
+    echo "Claude run failed:"; echo "$out" | tail -5; exit 1; }
+  OUT="$out" python3 - "$SESSION_FILE" <<'PY'
+import json, os, sys
+d = json.loads(os.environ["OUT"])
+if d.get("session_id"):
+    open(sys.argv[1], "w").write(d["session_id"])
+print(d.get("result") or d)
+PY
+}
+
+case "${1:-}" in
+  start)
+    run_claude "/review-transactions"
+    ;;
+  reply)
+    shift
+    [[ $# -ge 1 ]] || { echo 'usage: review-txn reply "<text>"'; exit 1; }
+    [[ -s "$SESSION_FILE" ]] || { echo "No review in progress. Run: review-txn start"; exit 1; }
+    run_claude --resume "$(cat "$SESSION_FILE")" "$*"
+    ;;
+  status)
+    if [[ -s "$SESSION_FILE" ]]; then
+      echo "session $(cat "$SESSION_FILE") (started $(date -r "$SESSION_FILE" '+%F %R'))"
+    else
+      echo "No review in progress."
+    fi
+    ;;
+  *)
+    sed -n '2,9p' "$0" | sed 's/^# \{0,1\}//'
+    ;;
+esac
