@@ -42,9 +42,14 @@ run_claude() {
   OUT="$out" python3 - "$SESSION_FILE" <<'PY'
 import json, os, sys
 d = json.loads(os.environ["OUT"])
-if d.get("session_id"):
+res = d.get("result") or ""
+done = "Summary" in res and "Reply with:" not in res
+if done:
+    # Review finished: clear the marker so `status` doesn't report it as unfinished.
+    if os.path.exists(sys.argv[1]): os.remove(sys.argv[1])
+elif d.get("session_id"):
     open(sys.argv[1], "w").write(d["session_id"])
-print(d.get("result") or d)
+print(res or d)
 PY
 }
 
