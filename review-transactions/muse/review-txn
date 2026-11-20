@@ -22,13 +22,16 @@ SESSION_FILE="$STATE_DIR/session"
 mkdir -p "$STATE_DIR"
 cd "$HOME"
 
-ALLOWED="mcp__monarch-money,Read,Write,Edit,Glob,Grep,Skill"
+# Data files live in ~/review-txn-data (symlinked from the skill dir): headless runs can't write
+# inside ~/.claude/ (protected path), so writes go through the symlinks to this dir instead.
+DATA_DIR="$HOME/review-txn-data"
+ALLOWED="mcp__monarch-money,Read,Glob,Grep,Skill,Edit(~/review-txn-data/**)"
 DENIED="mcp__monarch-money__delete_transaction,mcp__monarch-money__delete_account,mcp__monarch-money__delete_transaction_category,mcp__monarch-money__delete_transaction_rule,mcp__monarch-money__delete_transaction_tag,Bash"
 
 run_claude() {
   # $@ = extra args; prints the assistant's final text, saves the session id
   local out
-  out="$(claude -p --output-format json \
+  out="$(claude -p --output-format json --permission-mode acceptEdits --add-dir "$DATA_DIR" \
           --allowedTools="$ALLOWED" --disallowedTools="$DENIED" "$@")" || {
     echo "Claude run failed:"; echo "$out" | tail -5; exit 1; }
   OUT="$out" python3 - "$SESSION_FILE" <<'PY'
