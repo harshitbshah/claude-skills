@@ -12,7 +12,7 @@ set -euo pipefail
 SKILL_DIR="$(cd "$(dirname "$0")" && pwd)"
 REMOTE="${REVIEW_TXN_REMOTE:-clouddesktop}"  # ssh alias in ~/.ssh/config
 REMOTE_DIR=".claude/skills/review-transactions"
-FILES=(monarch-patterns.json state.json account-context.md categories-cache.json pending-roth.json)
+FILES=(monarch-patterns.json state.json account-context.md categories-cache.json)
 BASE="$SKILL_DIR/.sync-base"
 
 if [[ "$(hostname)" == "clouddesktop" ]]; then

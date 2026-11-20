@@ -11,6 +11,11 @@ do this over SSH on `oci-vm`, logged in as user `ubuntu`:
    Several can be combined, e.g. `ok, 3=Medical, skip 5`.
 4. Repeat steps 2–3 until the output shows the `── Summary ──` block and there's no `Reply with:` line left.
 
+Roth IRA sheet: if the final summary has a `Roth IRA rows to append:` block, append those rows to
+Harshit's Google Sheet "Roth IRA" (`1eoMAtTBZd1KJYMm9Ke9gGfMI1tZVNyn24ls8CFv4CS0`, tab `Sheet1`), directly
+under the last row: Year, Contributions, Change In Market Value, Withdrawals left blank. Skip a row if
+the same Year + Contributions is already there. Never append a row marked ⚠️ estimate unless he confirmed it.
+
 Rules:
 - **Never answer a table yourself.** Every `reply` must be Harshit's own words. In particular,
   "promote" creates permanent Monarch rules, so it always needs his explicit approval.

@@ -257,17 +257,16 @@ Update this **only after Phase 2 confirm** (or after Phase 1 if user passed `ski
 
 ## Roth IRA Spreadsheet Auto-Update
 
-**Spreadsheet path:** `/home/harshit-shah/gdrive/Important Documents/Documents/Investments/Roth IRA .xlsx`  
-**Sheet:** `Sheet1` — columns: `Year | Contributions | Change In Market Value | Withdrawals`
+**Google Sheet:** "Roth IRA", ID `1eoMAtTBZd1KJYMm9Ke9gGfMI1tZVNyn24ls8CFv4CS0`, tab `Sheet1`. Columns: `Year | Contributions | Change In Market Value | Withdrawals`
+Read and write it with the Google Sheets connector (`get_values` / `append_values`), never with a Drive mount.
+The old `Roth IRA .xlsx` on Drive is a frozen backup (stops at 2026-10). Never write to it.
 
 Run this step automatically after Phase 2 confirm, before the Final Report. No user prompt needed unless something is ambiguous.
 
-**If the spreadsheet path doesn't exist** (Google Drive isn't mounted on the VM): do steps 1–2, then
-append the rows (`{year, contribution, change_in_market_value, estimated: bool}`) to
-`~/.claude/skills/review-transactions/pending-roth.json` (a JSON array, deduplicated on year+contribution)
-and report `Roth IRA sheet: ⏳ N rows queued for the laptop`.
-**On the laptop, at the start of this step**, also take any rows from `pending-roth.json`, run them
-through steps 3–4, then empty the file (`[]`). Confirm estimated rows with the user before writing them.
+**If the Google Sheets connector isn't available** (e.g. headless on the VM): do steps 1–3 with what you
+can read, then put the rows in the Final Report under `Roth IRA rows to append:` as
+`Year | Contributions | Change In Market Value` lines, and report `Roth IRA sheet: ⏳ N rows for Muse to append`.
+Never mark estimated (⚠️) rows as ready to append until the user has confirmed the value.
 
 ### 1. Identify new rollovers
 
@@ -293,21 +292,15 @@ If no match is found, do NOT write `0.00` (this silently put 0.00 instead of 76.
 
 ### 3. Check for duplicates
 
-Load the spreadsheet with openpyxl. A row is already present if a row exists with the same `Year` AND `Contributions` value (exact float match). Skip duplicates silently.
+Read `Sheet1!A:D` with `get_values`. Values come back formatted (`"1,223.92"`), so strip commas and
+compare as numbers rounded to 2 decimals. A row is already present if the same `Year` AND `Contributions`
+exist. Skip duplicates silently.
 
 ### 4. Append new rows
 
-For each new rollover not already in the spreadsheet, write directly below the last row that has data. Do NOT use `ws.append()`: the sheet has ~1000 pre-formatted empty rows, so `append()` lands at row 1001+ (this happened 2026-04/05 and had to be moved by hand).
-```python
-import copy
-last = max(r for r in range(1, ws.max_row + 1) if ws.cell(r, 1).value is not None)
-for i, (year, contribution_amount, realized_gain_loss) in enumerate(new_rows, start=1):
-    ws.row_dimensions[last + i].height = ws.row_dimensions[last].height  # data rows are 22.5pt; empty rows default to 15.75
-    for c, v in enumerate([year, contribution_amount, realized_gain_loss, None], start=1):
-        ws.cell(last + i, c).value = v
-        ws.cell(last + i, c)._style = copy.copy(ws.cell(last, c)._style)
-wb.save(path)
-```
+`append_values` on `Sheet1!A:D` with `valueInputOption: USER_ENTERED`, one row per rollover:
+`[year, contribution_amount, realized_gain_loss, ""]` as plain numbers (no commas or `$`), Withdrawals blank.
+Then re-read the last rows to confirm they landed directly under the previous data (not at row 1000+).
 
 ### 5. Report in summary
 
