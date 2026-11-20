@@ -259,7 +259,7 @@ Update this **only after Phase 2 confirm** (or after Phase 1 if user passed `ski
 
 **Google Sheet:** "Roth IRA", ID `1eoMAtTBZd1KJYMm9Ke9gGfMI1tZVNyn24ls8CFv4CS0`, tab `Sheet1`. Columns: `Year | Contributions | Change In Market Value | Withdrawals`
 Read and write it with the Google Sheets connector (`get_values` / `append_values`), never with a Drive mount.
-The old `Roth IRA .xlsx` on Drive is a frozen backup (stops at 2026-10). Never write to it.
+The old `Roth IRA .xlsx` was deleted 2026-11-20; the Google Sheet is the only copy.
 
 Run this step automatically after Phase 2 confirm, before the Final Report. No user prompt needed unless something is ambiguous.
 
