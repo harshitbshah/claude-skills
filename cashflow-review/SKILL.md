@@ -168,7 +168,12 @@ abs(actual - trailing_avg) > max($75, 25% of trailing_avg)
 ```
 Before flagging, check `insights.json` → `recurring_patterns`: if the category/group has a pattern
 whose `typical_months` includes the target month's numeric month, don't flag it — just note it as
-"expected (seasonal)" in the summary. For everything else that clears the threshold, look at
+"expected (seasonal)" in the summary. **Amount cap:** a pattern may carry `max_amount`. Then it only
+covers the month up to that amount: add up `max_amount` across every pattern that matches this
+category and month (a matching pattern without `max_amount` means no cap). If the actual spend is
+above that sum, flag it anyway, e.g. "Taxes $7,150: one property tax bill is expected, but this
+looks like two". This is how "can land in any month" patterns (all 12 `typical_months`) still
+catch double payments and surprise bills. For everything else that clears the threshold, look at
 `byMerchant` to find the single biggest contributor driving the move — the flag should say "Travel
 & Lifestyle up $2,900 vs avg, driven by United Airlines ($1,729) + Airbnb ($1,469)", not just
 "Travel & Lifestyle is up."
