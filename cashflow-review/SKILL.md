@@ -30,6 +30,23 @@ flagged again once you've confirmed it's semi-annual).
 
 ---
 
+## Data lives on the OCI VM (single source of truth)
+
+`history.json` and `insights.json` are shared with Meta Muse, which runs this skill on the VM (`clouddesktop`)
+on the 5th of each month.
+- **At startup, before reading anything:** `bash ~/.claude/skills/cashflow-review/sync.sh pull`
+  (no-op on the VM). If it fails (VM unreachable), stop and tell the user; don't run on stale data.
+- **After writing either file** (Step 6 / 6.5, or an ad-hoc correction): `bash ~/.claude/skills/cashflow-review/sync.sh push`.
+  Exit code 2 means another run changed the VM data meanwhile: don't overwrite. Pull, re-apply this
+  run's changes on top, and push again.
+
+## Running headless (Meta Muse via `cashflow-rev`)
+
+With `claude -p` there's no live chat: each turn ends after you print a table, and the user's reply
+arrives as the next resumed prompt. End every turn that needs a decision with the table and the
+`Reply with:` line, nothing after it. Keep it phone-friendly. Never treat a missing reply as approval.
+Only `jq` is available as a shell command there; use it on oversized `get_cashflow` results.
+
 ## Startup: read these files first
 
 1. **`~/.claude/skills/cashflow-review/history.json`** — every past month's numbers. If missing, treat as empty (`{"version": 1, "months": []}`) — this is the first run.

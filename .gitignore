@@ -6,6 +6,7 @@ review-transactions/.sync-base
 
 cashflow-review/history.json
 cashflow-review/insights.json
+cashflow-review/.sync-base
 
 # Claude-managed synced skills (not ours)
 synced/
