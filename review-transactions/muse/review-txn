@@ -12,6 +12,11 @@ set -euo pipefail
 export PATH="$HOME/.npm-global/bin:$HOME/.local/bin:$PATH"
 export PYTHON_KEYRING_BACKEND=keyrings.alt.file.PlaintextKeyring
 
+# Long-lived Claude token from `claude setup-token` (file: CLAUDE_CODE_OAUTH_TOKEN=..., chmod 600).
+# Without it, the interactive /login session is used, which expires.
+TOKEN_FILE="$HOME/.config/review-txn/env"
+[[ -f "$TOKEN_FILE" ]] && { set -a; . "$TOKEN_FILE"; set +a; }
+
 STATE_DIR="$HOME/.cache/review-txn"
 SESSION_FILE="$STATE_DIR/session"
 mkdir -p "$STATE_DIR"

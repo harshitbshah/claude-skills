@@ -18,7 +18,8 @@ Rules:
   and he can pick it up later with `reply`.
 - Start a new review only when he asks. `start` throws away an unfinished one.
 - Errors:
-  - "Failed to authenticate": ask him to run `claude` on the VM and log in.
+  - "Failed to authenticate": the Claude token expired. Ask him to run `claude setup-token` on the VM
+    and save it to `~/.config/review-txn/env` as `CLAUDE_CODE_OAUTH_TOKEN=...` (chmod 600).
   - Monarch 401 / Unauthorized: the Monarch cookie has expired. Ask him to refresh it from his laptop.
   - "VM data changed since pull": that comes from his laptop. Here, just retry.
 
